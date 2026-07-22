@@ -35,7 +35,32 @@ git init
 # Check status of your repo
 git status
 ```
+---
 
+## Working with Remote Repositories
+
+```bash
+# Add a remote
+git remote add origin https://github.com/username/repo.git
+
+# Show remotes
+git remote -v
+
+# Remove a remote
+git remote remove origin
+
+# Push to remote
+git push origin main
+
+# Push a specific branch
+git push origin feature-branch
+
+# Pull from remote
+git pull origin main
+
+# Fetch changes (without merging)
+git fetch
+```
 ---
 
 ## Basic Git Workflow
@@ -127,33 +152,6 @@ git merge feature-branch -m "Merged feature"
 
 # Abort merge if conflict
 git merge --abort
-```
-
----
-
-## Working with Remote Repositories
-
-```bash
-# Add a remote
-git remote add origin https://github.com/username/repo.git
-
-# Show remotes
-git remote -v
-
-# Remove a remote
-git remote remove origin
-
-# Push to remote
-git push origin main
-
-# Push a specific branch
-git push origin feature-branch
-
-# Pull from remote
-git pull origin main
-
-# Fetch changes (without merging)
-git fetch
 ```
 
 ---
