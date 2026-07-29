@@ -281,6 +281,7 @@ git push
 | "Your branch is ahead" | `git push` |
 | "Your branch is behind" | `git pull` |
 | "Detached HEAD" | `git checkout main` or `git switch -` |
+| "Merge the remote changes with your local changes" | `git pull origin main --allow-unrelated-histories -` |
 
 ---
 
