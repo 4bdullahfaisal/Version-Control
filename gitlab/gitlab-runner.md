@@ -1,4 +1,4 @@
-# GitLab Runners Setup — Oracle Linux & Ubuntu
+# GitLab Runners Setup — Oracle
 
 ---
 
@@ -20,63 +20,39 @@ A GitLab Runner is a lightweight agent that executes CI/CD jobs defined in `.git
 ## Step 1: Folder Structure
 
 ```
-gitlab-runners/
-├── oracle-runner/
-│   └── docker-compose.yml
-└── ubuntu-runner/
-    └── docker-compose.yml
+runner/
+├── dockerfile
 ```
 
 ---
 
-## Step 2: Docker Compose Files
+## Step 2: Dockerfile
 
-### `oracle-runner/docker-compose.yml`
+### `runner/dockerfile`
 
-```yaml
-services:
-  oracle-runner:
-    image: oraclelinux:9
-    container_name: oracle-gitlab-runner
-    hostname: oracle-runner
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    volumes:
-      - ./scripts:/scripts
-    command: ["/bin/bash", "-c", "while true; do sleep 3600; done"]
+```dockerfile
+FROM oraclelinux:9
+
+RUN dnf install -y curl git openssh-clients tar which shadow-utils && \
+    curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh" | bash && \
+    dnf install -y gitlab-runner && \
+    dnf clean all
+
+WORKDIR /home/gitlab-runner
+
+ENTRYPOINT ["gitlab-runner"]
+CMD ["run", "--working-directory=/home/gitlab-runner", "--config=/etc/gitlab-runner/config.toml"]
 ```
 
-### `ubuntu-runner/docker-compose.yml`
-
-```yaml
-services:
-  ubuntu-runner:
-    image: ubuntu:latest
-    container_name: ubuntu-gitlab-runner
-    hostname: ubuntu-runner
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    volumes:
-      - ./scripts:/scripts
-    command: ["/bin/bash", "-c", "while true; do sleep 3600; done"]
-```
-
----
 
 ## Step 3: Start Containers
 
 ```bash
 # Start Oracle runner
-cd oracle-runner
+cd runner
 docker compose up -d
 
-# Start Ubuntu runner
-cd ../ubuntu-runner
-docker compose up -d
-
-# Verify both are running
+# Verify running
 docker ps
 ```
 
@@ -86,41 +62,11 @@ docker ps
 
 ```bash
 # Enter container
-docker exec -it oracle-gitlab-runner bash
+docker exec -it gitlab-runner bash
 
 # Update and install dependencies
 yum update -y
 yum install -y curl wget git
-
-# Download GitLab Runner
-curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64"
-
-# Make executable and move to PATH
-chmod +x gitlab-runner-linux-amd64
-mv gitlab-runner-linux-amd64 /usr/local/bin/gitlab-runner
-
-# Create gitlab-runner user
-useradd --comment 'GitLab Runner' --create-home gitlab-runner --shell /bin/bash
-
-# Install and start as service
-gitlab-runner install --user=gitlab-runner --working-directory=/home/gitlab-runner
-gitlab-runner start
-
-# Verify
-gitlab-runner --version
-```
-
----
-
-## Step 5: Install GitLab Runner on Ubuntu
-
-```bash
-# Enter container
-docker exec -it ubuntu-gitlab-runner bash
-
-# Update and install dependencies
-apt-get update
-apt-get install -y curl wget git
 
 # Download GitLab Runner
 curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64"
@@ -153,7 +99,7 @@ gitlab-runner --version
 ### 6.2 Register Oracle Runner
 
 ```bash
-docker exec -it oracle-gitlab-runner bash
+docker exec -it gitlab-runner bash
 
 gitlab-runner register \
   --url http://host.docker.internal:8082 \
@@ -161,19 +107,6 @@ gitlab-runner register \
   --executor shell \
   --description "Oracle Linux Runner" \
   --tag-list "oracle,linux"
-```
-
-### 6.3 Register Ubuntu Runner
-
-```bash
-docker exec -it ubuntu-gitlab-runner bash
-
-gitlab-runner register \
-  --url http://host.docker.internal:8082 \
-  --registration-token YOUR_TOKEN \
-  --executor shell \
-  --description "Ubuntu Runner" \
-  --tag-list "ubuntu,linux"
 ```
 
 ---
@@ -208,15 +141,6 @@ oracle-job:
     - whoami
     - pwd
 
-ubuntu-job:
-  stage: test
-  tags:
-    - ubuntu
-  script:
-    - echo "Running on Ubuntu"
-    - cat /etc/os-release
-    - whoami
-    - pwd
 ```
 
 ### Push the file and check pipeline status in GitLab.
@@ -236,10 +160,7 @@ docker compose down
 docker compose logs -f
 
 # Enter Oracle container
-docker exec -it oracle-gitlab-runner bash
-
-# Enter Ubuntu container
-docker exec -it ubuntu-gitlab-runner bash
+docker exec -it gitlab-runner bash
 
 # Register runner
 gitlab-runner register --url URL --registration-token TOKEN --executor shell
@@ -265,7 +186,5 @@ gitlab-runner verify
 - Or use your machine's local IP address
 
 ### Container not starting
-- Check docker-compose syntax: `docker compose config`
-- Check logs: `docker compose logs`
-
+- Check dockerfile syntax: `docker compose config`
 ---
