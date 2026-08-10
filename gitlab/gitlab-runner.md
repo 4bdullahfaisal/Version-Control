@@ -45,73 +45,70 @@ CMD ["run", "--working-directory=/home/gitlab-runner", "--config=/etc/gitlab-run
 ```
 
 
-## Step 3: Start Containers
+## Step 3: build and run container
 
 ```bash
-# Start Oracle runner
-cd runner
-docker compose up -d
+# Build the image
+docker build -t runner .
 
-# Verify running
-docker ps
+# Run the container (with Docker socket mount for Docker executor)
+docker run -d \
+  --name gitlab-runner \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /etc/gitlab-runner/config.toml:/etc/gitlab-runner/config.toml \
+  runner
+
+# Or for shell executor (simpler):
+docker run -d --name gitlab-runner runner
 ```
 
 ---
 
-## Step 4: Install GitLab Runner on Oracle Linux
+## Step 4: Register Runners with GitLab
 
-```bash
-# Enter container
-docker exec -it gitlab-runner bash
-
-# Update and install dependencies
-yum update -y
-yum install -y curl wget git
-
-# Download GitLab Runner
-curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64"
-
-# Make executable and move to PATH
-chmod +x gitlab-runner-linux-amd64
-mv gitlab-runner-linux-amd64 /usr/local/bin/gitlab-runner
-
-# Create gitlab-runner user
-useradd --comment 'GitLab Runner' --create-home gitlab-runner --shell /bin/bash
-
-# Install and start as service
-gitlab-runner install --user=gitlab-runner --working-directory=/home/gitlab-runner
-gitlab-runner start
-
-# Verify
-gitlab-runner --version
-```
-
----
-
-## Step 6: Register Runners with GitLab
-
-### 6.1 Get GitLab Registration Token
+### 4.1 Get GitLab Registration Token
 
 1. Open GitLab: `http://localhost:8082`
 2. Go to **Admin** → **Runners**
 3. Copy the registration token (starts with `GR134894...`)
 
-### 6.2 Register Oracle Runner
+### 4.2 Register Oracle Runner
 
 ```bash
+# Enter container
 docker exec -it gitlab-runner bash
 
+# Register the runner
 gitlab-runner register \
   --url http://host.docker.internal:8082 \
   --registration-token YOUR_TOKEN \
-  --executor shell \
+  --executor docker \
+  --docker-image alpine:latest \
   --description "Oracle Linux Runner" \
   --tag-list "oracle,linux"
+
+# Exit container
+exit
+```
+
+> **Note:** For `--executor`, choose:
+ - `shell` - runs directly on container (no Docker socket needed)
+ - `docker` - needs `/var/run/docker.sock` mounted
+
+**Alternative: Interactive Registration**
+
+```bash
+# Enter container
+docker exec -it gitlab-runner bash
+
+# Register interactively
+gitlab-runner register
+# Follow prompts
 ```
 
 ---
 
-## Step 7: Verify Runners
+## Step 5: Verify Runners
 
 ```bash
 # List all runners
@@ -123,7 +120,7 @@ gitlab-runner verify
 
 ---
 
-## Step 8: Test with a Pipeline
+## Step 6: Test with a Pipeline
 
 ### Create `.gitlab-ci.yml` in your GitLab project:
 
@@ -150,16 +147,13 @@ oracle-job:
 ## Commands Summary
 
 ```bash
-# Start containers
-docker compose up -d
+# Build image
+docker build -t runner .
 
-# Stop containers
-docker compose down
+# Start container
+docker run -d --name gitlab-runner runner
 
-# Check logs
-docker compose logs -f
-
-# Enter Oracle container
+# Enter container
 docker exec -it gitlab-runner bash
 
 # Register runner
@@ -170,6 +164,13 @@ gitlab-runner list
 
 # Verify runners
 gitlab-runner verify
+
+# Check logs
+docker logs gitlab-runner
+
+# Stop and remove
+docker stop gitlab-runner
+docker rm gitlab-runner
 ```
 
 ---
@@ -187,4 +188,5 @@ gitlab-runner verify
 
 ### Container not starting
 - Check dockerfile syntax: `docker compose config`
+- Check logs : `docker logs gitlab-runner`
 ---
